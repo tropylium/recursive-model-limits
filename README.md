@@ -7,3 +7,9 @@ This project compares several different transformer architectures on image class
 
 # Technical Details
 This project uses `uv` for Python project management. It uses the standard in configuration and logging (hydra/omegaconf, wandb). 
+
+In addition, several global configuraton variables are in `.env`. Create one if it doesn't exist with the following fields:
+```
+DATASET_DIR= # dir to save and load datasets from. Useful to avoid duplicates if you're using these datasets elsewhere.
+WANDB_PROJECT_NAME= # ditto
+```

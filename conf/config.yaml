@@ -1,0 +1,16 @@
+defaults:
+  - arch: simple_cnn
+  - dataset: cifar10
+  - training: default
+  - scheduler: cosine
+  - _self_
+
+# Run name for this experiment (used for checkpointing and wandb)
+run_name: ${arch.model}_${dataset.name}_${now:%Y%m%d_%H%M%S}
+
+# Hydra configuration for output directory
+hydra:
+  run:
+    dir: output/runs/${run_name}
+  job:
+    chdir: false

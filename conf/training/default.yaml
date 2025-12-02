@@ -1,0 +1,17 @@
+# Training hyperparameters
+
+# Optimizer settings
+lr: 3.0e-4
+weight_decay: 0.01
+
+# Training settings
+epochs: 100
+batch_size: 128  # Per GPU batch size
+num_workers: 4
+
+# AMP (Automatic Mixed Precision)
+use_amp: true
+
+# Checkpointing
+checkpoint_every: 10  # Save checkpoint every N epochs
+

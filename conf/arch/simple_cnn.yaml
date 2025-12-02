@@ -1,0 +1,12 @@
+# Model identifier for loading via load_model_class
+model: simple_cnn@SimpleCNN
+
+# Model configuration
+config:
+  num_classes: 10  # Will be overridden by dataset config
+  input_channels: 3
+  input_width: 32  # CIFAR10/100 image size
+  num_conv_layers: 3
+  num_fc_layers: 2
+  fc_hidden_dim: 256
+  dropout_rate: 0.2

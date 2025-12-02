@@ -1,0 +1,13 @@
+# Dataset name for loading via dataset_factory
+name: CIFAR10
+
+# Dataset properties
+num_classes: 10
+input_channels: 3
+image_size: 32
+
+# Override model num_classes based on dataset
+arch:
+  config:
+    num_classes: 10
+

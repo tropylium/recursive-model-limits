@@ -1,0 +1,5 @@
+# Cosine annealing learning rate scheduler
+
+# Minimum learning rate
+eta_min: 1.0e-6
+

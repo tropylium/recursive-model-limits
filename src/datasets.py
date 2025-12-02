@@ -48,3 +48,12 @@ def CIFAR100(train: bool = True, transform: Optional[Callable] = None, **kwargs)
         **kwargs
     )
     return dataset
+
+
+def dataset_factory(identifier: str):
+    if identifier == "CIFAR10":
+        return CIFAR10
+    elif identifier == "CIFAR100":
+        return CIFAR100
+    else:
+        raise ValueError(f"Invalid dataset identifier: {identifier}")
