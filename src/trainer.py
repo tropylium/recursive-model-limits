@@ -55,7 +55,11 @@ class Trainer:
 
         # Wrap model in DDP if distributed
         if world_size > 1:
-            self.model = DDP(model, device_ids=[rank])
+            self.model = DDP(
+                model,
+                device_ids=[rank],
+                find_unused_parameters=True,  # Required for models with conditional paths
+            )
         else:
             self.model = model
 
