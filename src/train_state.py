@@ -9,6 +9,7 @@ from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 
+import wandb
 from src.datasets import dataset_factory
 from src.models.loader import load_model_class
 from src.utils.checkpoint import load_checkpoint
@@ -173,6 +174,16 @@ class TrainState:
                 p.numel() for p in model.parameters() if p.requires_grad
             )
             print(f"Model parameters: {num_params:,} (trainable: {num_trainable:,})")
+
+            # Log to wandb if initialized
+            if wandb.run is not None:
+                wandb.config.update(
+                    {
+                        "model_params_total": num_params,
+                        "model_params_trainable": num_trainable,
+                    },
+                    allow_val_change=True,
+                )
 
         # Create optimizer
         optimizer = torch.optim.AdamW(

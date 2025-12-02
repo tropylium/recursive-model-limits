@@ -1,0 +1,5 @@
+model: resnet@ResNet
+
+config:
+  num_classes: 10
+  size: 18
