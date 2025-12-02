@@ -1,0 +1,18 @@
+# Model identifier for loading via load_model_class
+model: vit@ViT
+
+# Model configuration
+config:
+  image_size: 32  # CIFAR10/100 image size
+  patch_size: 4  # Patch size for ViT
+  num_classes: 10  # Will be overridden by dataset config
+  dim: 512  # Embedding dimension (dimhead)
+  depth: 6  # Number of transformer layers
+  heads: 8  # Number of attention heads
+  mlp_dim: 512  # MLP hidden dimension
+  pool: 'cls'  # Pooling method ('cls' or 'mean')
+  channels: 3  # Input channels (RGB)
+  dim_head: 64  # Dimension per attention head
+  dropout: 0.1  # Dropout rate
+  emb_dropout: 0.1  # Embedding dropout rate
+
