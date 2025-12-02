@@ -14,4 +14,5 @@ use_amp: true
 
 # Checkpointing
 checkpoint_every: 10  # Save checkpoint every N epochs
+resume_from: null  # Path to checkpoint to resume from (e.g., "output/runs/my_run/checkpoints/checkpoint_epoch_50.pt")
 

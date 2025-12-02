@@ -16,6 +16,7 @@ from torch.utils.data.distributed import DistributedSampler
 from src.datasets import dataset_factory
 from src.models.loader import load_model_class
 from src.train import train
+from src.train_state import TrainState
 from src.utils.distributed import cleanup_distributed, setup_distributed
 from src.utils.logging import finish_wandb, init_wandb, print_rank_0
 
@@ -115,19 +116,29 @@ def main(config: DictConfig) -> None:
     checkpoint_dir = hydra_output_dir / "checkpoints"
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
-    # Start training
-    train(
+    # Create TrainState
+    train_state = TrainState(
         model=model,
-        train_loader=train_loader,
-        val_loader=val_loader,
         optimizer=optimizer,
         scheduler=scheduler,
+        train_loader=train_loader,
+        val_loader=val_loader,
         config=config,
         device=device,
         checkpoint_dir=checkpoint_dir,
         rank=rank,
         world_size=world_size,
+        start_epoch=0,
+        best_val_acc=0.0,
     )
+
+    # Resume from checkpoint if specified
+    if config.training.resume_from is not None:
+        checkpoint_path = Path(config.training.resume_from)
+        train_state = train_state.load_from_checkpoint(checkpoint_path)
+
+    # Start training
+    train(train_state)
 
     # Cleanup
     finish_wandb(rank=rank)
