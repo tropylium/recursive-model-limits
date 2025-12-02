@@ -16,15 +16,21 @@ def CIFAR10(train: bool = True, transform: Optional[Callable] = None, **kwargs):
         root=DATASET_ROOT / "CIFAR10",
         train=train,
         download=True,
-        transform=transforms.Compose(
-            [
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.4914, 0.4822, 0.4465], std=[0.2470, 0.2435, 0.2616]
-                ),
-            ]
-        ) if transform is None else transform,
-        **kwargs
+        transform=(
+            transforms.Compose(
+                [
+                    transforms.RandomCrop(32, padding=4),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.ToTensor(),
+                    transforms.Normalize(
+                        mean=[0.4914, 0.4822, 0.4465], std=[0.2470, 0.2435, 0.2616]
+                    ),
+                ]
+            )
+            if transform is None
+            else transform
+        ),
+        **kwargs,
     )
     return dataset
 
