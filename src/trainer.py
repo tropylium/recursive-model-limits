@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 
 import torch
 import torch.nn as nn
-from torch.cuda.amp import GradScaler, autocast
+from torch.amp import GradScaler, autocast
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -64,7 +64,7 @@ class Trainer:
 
         # AMP setup
         self.use_amp = use_amp
-        self.scaler = GradScaler() if use_amp else None
+        self.scaler = GradScaler("cuda") if use_amp else None
 
         # Track best validation metric
         self.best_val_acc = best_val_acc
@@ -123,7 +123,7 @@ class Trainer:
 
             # Forward pass with AMP
             if self.use_amp:
-                with autocast():
+                with autocast("cuda"):
                     output = self.model(data)
                     loss = self.model.module.compute_loss(output, target) if hasattr(self.model, 'module') else self.model.compute_loss(output, target)
 
@@ -193,7 +193,7 @@ class Trainer:
             data, target = data.to(self.device), target.to(self.device)
 
             if self.use_amp:
-                with autocast():
+                with autocast("cuda"):
                     output = self.model(data)
                     loss = self.model.module.compute_loss(output, target) if hasattr(self.model, 'module') else self.model.compute_loss(output, target)
             else:

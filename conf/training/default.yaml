@@ -14,5 +14,9 @@ use_amp: true
 
 # Checkpointing
 checkpoint_every: 10  # Save checkpoint every N epochs
-resume_from: null  # Path to checkpoint to resume from (e.g., "output/runs/my_run/checkpoints/checkpoint_epoch_50.pt")
+
+# Resume options
+resume_from: null  # (Legacy) Path to specific checkpoint file
+resume_run_dir: null  # Path to run directory (e.g., "output/runs/my_run"). When set, config from that run will be loaded and used.
+resume_epoch: null  # Specific epoch to resume from, or null for best_model
 
