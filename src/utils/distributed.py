@@ -1,4 +1,5 @@
 import os
+
 import torch
 import torch.distributed as dist
 
@@ -78,10 +79,50 @@ def reduce_tensor(tensor: torch.Tensor, average: bool = True) -> torch.Tensor:
     """
     if not dist.is_initialized():
         return tensor
-    
+
     rt = tensor.clone()
     dist.all_reduce(rt, op=dist.ReduceOp.SUM)
     if average:
         rt = rt / get_world_size()
     return rt
 
+
+def broadcast_string(s: str, src: int = 0) -> str:
+    """
+    Broadcast a string from source rank to all other ranks.
+
+    Args:
+        s: String to broadcast (only used on source rank)
+        src: Source rank (default: 0)
+
+    Returns:
+        Broadcasted string
+    """
+    if not dist.is_initialized():
+        return s
+
+    rank = get_rank()
+
+    # First broadcast the length
+    if rank == src:
+        length = len(s.encode("utf-8"))
+    else:
+        length = 0
+
+    length_tensor = torch.tensor(length, dtype=torch.long, device="cuda")
+    dist.broadcast(length_tensor, src=src)
+    length = length_tensor.item()
+
+    # Then broadcast the string content
+    if rank == src:
+        byte_tensor = torch.tensor(
+            list(s.encode("utf-8")), dtype=torch.uint8, device="cuda"
+        )
+    else:
+        byte_tensor = torch.zeros(length, dtype=torch.uint8, device="cuda")
+
+    dist.broadcast(byte_tensor, src=src)
+
+    # Convert back to string
+    result = bytes(byte_tensor.cpu().numpy()).decode("utf-8")
+    return result

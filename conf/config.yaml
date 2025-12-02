@@ -5,12 +5,15 @@ defaults:
   - scheduler: cosine
   - _self_
 
-# Run name for this experiment (used for checkpointing and wandb)
-run_name: ${arch.model}_${dataset.name}_${now:%Y%m%d_%H%M%S}
+# Run name will be generated programmatically in main.py
+# This ensures exact synchronization across all distributed processes
 
-# Hydra configuration for output directory
+# Hydra configuration
 hydra:
+  # Disable Hydra's automatic output directory creation
+  # We manage output directories manually in main.py to avoid race conditions
+  output_subdir: null  # Don't create .hydra subdirectory
   run:
-    dir: output/runs/${run_name}
+    dir: .  # Run in current directory instead of creating hydra output dirs
   job:
-    chdir: false
+    chdir: false  # Don't change working directory

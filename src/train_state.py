@@ -242,7 +242,7 @@ class TrainState:
         Create a TrainState from an existing run directory.
         Useful for resuming training or loading pretrained models for inference.
 
-        Loads the config from the run directory's saved Hydra config,
+        Loads the config from the run directory's saved config file,
         making this method fully self-contained.
 
         Args:
@@ -256,11 +256,17 @@ class TrainState:
             TrainState loaded from checkpoint with original config
         """
         # Load the config from the run directory
-        config_path = run_directory / ".hydra" / "config.yaml"
+        # Check for config in two locations for backwards compatibility:
+        # 1. config.yaml (new location, saved by main.py)
+        # 2. .hydra/config.yaml (old location, saved by Hydra automatically)
+        config_path = run_directory / "config.yaml"
+        if not config_path.exists():
+            config_path = run_directory / ".hydra" / "config.yaml"
+
         if not config_path.exists():
             raise FileNotFoundError(
-                f"Config file not found in run directory: {config_path}\n"
-                f"Make sure you're pointing to a valid run directory with Hydra configs."
+                f"Config file not found in run directory: {run_directory}\n"
+                f"Looked for: config.yaml and .hydra/config.yaml"
             )
 
         print_rank_0(f"Loading config from: {config_path}", rank)
