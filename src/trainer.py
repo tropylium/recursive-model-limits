@@ -8,6 +8,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from src.models.utils import RecursiveModel
 from src.utils.checkpoint import save_checkpoint
 from src.utils.distributed import (get_rank, get_world_size, is_main_process,
                                    reduce_tensor)
@@ -63,6 +64,11 @@ class Trainer:
         else:
             self.model = model
 
+        # Detect if model supports stateful/recursive training
+        # Check the underlying model (unwrap DDP if needed)
+        base_model = self.model.module if hasattr(self.model, "module") else self.model
+        self.is_recursive_model = isinstance(base_model, RecursiveModel)
+
         self.optimizer = optimizer
         self.scheduler = scheduler
 
@@ -97,6 +103,80 @@ class Trainer:
             best_val_acc=state.best_val_acc,
         )
 
+    def _compute_loss(self, output: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        """
+        Helper to compute loss, handling DDP wrapping.
+
+        Args:
+            output: Model output (logits)
+            target: Target labels
+
+        Returns:
+            Computed loss
+        """
+        if hasattr(self.model, "module"):
+            return self.model.module.compute_loss(output, target)
+        else:
+            return self.model.compute_loss(output, target)
+
+    def _forward_standard(
+        self, data: torch.Tensor, target: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Standard forward pass for feedforward models.
+
+        Args:
+            data: Input data
+            target: Target labels
+
+        Returns:
+            loss: Computed loss
+            output: Model output (logits)
+        """
+        if self.use_amp:
+            with autocast("cuda"):
+                output = self.model(data)
+                loss = self._compute_loss(output, target)
+        else:
+            output = self.model(data)
+            loss = self._compute_loss(output, target)
+
+        return loss, output
+
+    def _forward_recursive(
+        self, data: torch.Tensor, target: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Forward pass for recursive models with state.
+        Accumulates loss across all recursion steps.
+
+        Args:
+            data: Input data
+            target: Target labels
+
+        Returns:
+            total_loss: Sum of losses from all recursion steps
+            logits: Final output logits (for metrics)
+        """
+        base_model = self.model.module if hasattr(self.model, "module") else self.model
+        state = base_model.init_state(data.size(0))
+
+        total_loss = 0.0
+
+        for step in range(base_model.config.max_recursion_steps):
+            if self.use_amp:
+                with autocast("cuda"):
+                    logits, state = self.model(data, state)
+                    step_loss = self._compute_loss(logits, target)
+            else:
+                logits, state = self.model(data, state)
+                step_loss = self._compute_loss(logits, target)
+
+            total_loss = total_loss + step_loss
+
+        # Return total loss (sum) and final logits for metrics
+        return total_loss, logits
+
     def train_epoch(self, train_loader: DataLoader, epoch: int) -> Dict[str, float]:
         """
         Train for one epoch.
@@ -125,19 +205,18 @@ class Trainer:
 
             self.optimizer.zero_grad()
 
-            # Forward pass with AMP
-            if self.use_amp:
-                with autocast("cuda"):
-                    output = self.model(data)
-                    loss = self.model.module.compute_loss(output, target) if hasattr(self.model, 'module') else self.model.compute_loss(output, target)
+            # Route to appropriate forward method based on model type
+            if self.is_recursive_model:
+                loss, output = self._forward_recursive(data, target)
+            else:
+                loss, output = self._forward_standard(data, target)
 
-                # Backward pass with gradient scaling
+            # Common backward pass
+            if self.use_amp:
                 self.scaler.scale(loss).backward()
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
             else:
-                output = self.model(data)
-                loss = self.model.module.compute_loss(output, target) if hasattr(self.model, 'module') else self.model.compute_loss(output, target)
                 loss.backward()
                 self.optimizer.step()
 
@@ -196,13 +275,11 @@ class Trainer:
         for data, target in pbar:
             data, target = data.to(self.device), target.to(self.device)
 
-            if self.use_amp:
-                with autocast("cuda"):
-                    output = self.model(data)
-                    loss = self.model.module.compute_loss(output, target) if hasattr(self.model, 'module') else self.model.compute_loss(output, target)
+            # Route to appropriate forward method based on model type
+            if self.is_recursive_model:
+                loss, output = self._forward_recursive(data, target)
             else:
-                output = self.model(data)
-                loss = self.model.module.compute_loss(output, target) if hasattr(self.model, 'module') else self.model.compute_loss(output, target)
+                loss, output = self._forward_standard(data, target)
 
             total_loss += loss.item()
 

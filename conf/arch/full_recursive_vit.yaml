@@ -1,5 +1,5 @@
 # Model identifier for loading via load_model_class
-model: fake_recursive_vit@FakeRecursiveViT
+model: full_recursive_vit@FullRecursiveViT
 
 # Model configuration
 config:
@@ -18,5 +18,6 @@ config:
 
   class_token_in_state: true
   max_recursion_steps: 3
-  state_init: 'zero'  # 'noise' or 'zero'
+  state_init: 'noise'  # 'noise' or 'zero'
   inject_step_embedding: false  # Add learnable step embeddings to state
+

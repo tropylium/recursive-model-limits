@@ -9,6 +9,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from src.models.utils import FeedForwardModel
+
 
 class BasicBlock(nn.Module):
     expansion = 1
@@ -63,7 +65,7 @@ class Bottleneck(nn.Module):
         return out
 
 
-class _ResNet(nn.Module):
+class _ResNet(FeedForwardModel):
     def __init__(self, block, num_blocks, num_classes=10):
         super(_ResNet, self).__init__()
         self.in_planes = 64
@@ -130,13 +132,9 @@ class ResNet(_ResNet):
             block, num_blocks = Bottleneck, [3,8,36,3]
         else:
             raise ValueError(f"Unknown ResNet size: {config.size}")
-        
+
         # Initialize parent class
         super().__init__(block, num_blocks, config.num_classes)
-        
+
         # Store config
         self.config = config
-    
-    def compute_loss(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-        """Compute cross-entropy loss for classification."""
-        return F.cross_entropy(logits, targets)

@@ -5,6 +5,8 @@ from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 from torch import nn
 
+from src.models.utils import FeedForwardModel
+
 # helpers
 
 def pair(t):
@@ -77,7 +79,8 @@ class Transformer(nn.Module):
             x = ff(x) + x
         return x
 
-class _ViT(nn.Module):
+
+class _ViT(FeedForwardModel):
     def __init__(self, *, image_size, patch_size, num_classes, dim, depth, heads, mlp_dim, pool = 'cls', channels = 3, dim_head = 64, dropout = 0., emb_dropout = 0.):
         super().__init__()
         image_height, image_width = pair(image_size)
@@ -124,6 +127,7 @@ class _ViT(nn.Module):
         x = self.to_latent(x)
         return self.mlp_head(x)
 
+
 import pydantic
 import torch.nn.functional as F
 
@@ -145,6 +149,3 @@ class ViTConfig(pydantic.BaseModel):
 class ViT(_ViT):
     def __init__(self, config: ViTConfig):
         super().__init__(**dict(config))
-
-    def compute_loss(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-        return F.cross_entropy(logits, targets)

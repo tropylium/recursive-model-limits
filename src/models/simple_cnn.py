@@ -3,6 +3,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from src.models.utils import FeedForwardModel
+
 
 class SimpleCNNConfig(pydantic.BaseModel):
     """
@@ -43,7 +45,7 @@ class ConvBlock(nn.Module):
         return x
 
 
-class SimpleCNN(nn.Module):
+class SimpleCNN(FeedForwardModel):
     """
     Your standard CNN model.
     """

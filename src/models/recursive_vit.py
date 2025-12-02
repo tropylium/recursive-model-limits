@@ -8,6 +8,8 @@ import torch.nn.functional as F
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 
+from src.models.utils import FeedForwardModel
+
 # helpers
 
 def pair(t):
@@ -125,6 +127,7 @@ class RecursiveViTConfig(pydantic.BaseModel):
     class_token_in_state: bool = True
     max_recursion_steps: int = 3
     state_init: str = 'noise' # 'noise' or 'zero'
+    inject_step_embedding: bool = False
 
 @dataclass
 class RecursiveViTState:
@@ -179,10 +182,18 @@ class RecursiveViTInner(nn.Module):
 
         self.state_dim = num_patches + (1 if self.config.class_token_in_state else 0)
 
+        # Step embeddings (if enabled)
+        if self.config.inject_step_embedding:
+            self.step_embedding = nn.Parameter(
+                torch.randn(self.config.max_recursion_steps, 1, dim) * 0.02
+            )
+        else:
+            self.step_embedding = None
+
     def init_state(self, batch_size: int) -> RecursiveViTState:
         # Get device from model parameters (handles CPU/GPU/distributed)
         device = self.cls_token.device
-        
+
         initial_state_tensor = torch.empty(
             batch_size, self.state_dim, self.config.dim,
             device=device
@@ -215,13 +226,18 @@ class RecursiveViTInner(nn.Module):
         cls_tokens = repeat(self.cls_token, '() n d -> b n d', b = b)
         x = torch.cat((cls_tokens, x), dim=1)
         x += self.pos_embedding[:, :(n + 1)]
-        
+
+        # Inject step embedding to all tokens (if enabled)
+        if self.step_embedding is not None:
+            step_emb = self.step_embedding[prev_state.step]  # [1, 1, dim]
+            x = x + step_emb  # Broadcasting to [B, num_tokens, dim]
+
         # Add previous state to tokens
         if self.config.class_token_in_state:
             x += prev_state.state
         else:
             x[:, 1:] += prev_state.state
-        
+
         x = self.dropout(x)
         x = self.transformer(x)
 
@@ -230,15 +246,16 @@ class RecursiveViTInner(nn.Module):
             new_state = x  # Include CLS token in state
         else:
             new_state = x[:, 1:]  # Exclude CLS token from state
-        
+
         # Pool for classification
         x_pooled = x.mean(dim=1) if self.pool == 'mean' else x[:, 0]
         x_pooled = self.to_latent(x_pooled)
         logits = self.mlp_head(x_pooled)
-        
+
         return logits, RecursiveViTState(step=prev_state.step + 1, state=new_state)
 
-class RecursiveViT(nn.Module):
+
+class RecursiveViT(FeedForwardModel):
     def __init__(self, config: RecursiveViTConfig):
         super().__init__()
         self.config = config
@@ -250,6 +267,3 @@ class RecursiveViT(nn.Module):
         for _ in range(self.config.max_recursion_steps):
             logits, state = self.inner(img, state)
         return logits
-
-    def compute_loss(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-        return F.cross_entropy(logits, targets)
