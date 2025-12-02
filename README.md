@@ -13,3 +13,11 @@ In addition, several global configuraton variables are in `.env`. Create one if 
 DATASET_DIR= # dir to save and load datasets from. Useful to avoid duplicates if you're using these datasets elsewhere.
 WANDB_PROJECT_NAME= # ditto
 ```
+
+In addition, add this to your `.git/config`:
+```
+[filter "strip-notebook-output"]
+clean = "jupyter nbconvert --ClearOutputPreprocessor.enabled=True --ClearMetadataPreprocessor.enabled=True --to=notebook --stdin --stdout --log-level=ERROR"
+```
+
+This cleans jupyter notebooks of metadata on commit.
