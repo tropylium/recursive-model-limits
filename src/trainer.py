@@ -143,19 +143,61 @@ class Trainer:
 
         return loss, output
 
-    def _forward_recursive(
+    def _train_recursive(
         self, data: torch.Tensor, target: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[float, torch.Tensor]:
         """
-        Forward pass for recursive models with state.
-        Accumulates loss across all recursion steps.
+        Training pass for recursive models with per-step backpropagation.
+        Each recursion step computes loss and backprops independently.
 
         Args:
             data: Input data
             target: Target labels
 
         Returns:
-            total_loss: Sum of losses from all recursion steps
+            avg_loss: Average loss across all recursion steps (as float, for logging)
+            logits: Final output logits (for metrics)
+        """
+        base_model = self.model.module if hasattr(self.model, "module") else self.model
+        state = base_model.init_state(data.size(0))
+
+        total_loss = 0.0
+
+        for step in range(base_model.config.max_recursion_steps):
+            self.optimizer.zero_grad()
+
+            if self.use_amp:
+                with autocast("cuda"):
+                    logits, state = self.model(data, state)
+                    step_loss = self._compute_loss(logits, target)
+                self.scaler.scale(step_loss).backward()
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+            else:
+                logits, state = self.model(data, state)
+                step_loss = self._compute_loss(logits, target)
+                step_loss.backward()
+                self.optimizer.step()
+
+            total_loss += step_loss.item()
+
+        avg_loss = total_loss / base_model.config.max_recursion_steps
+        return avg_loss, logits
+
+    @torch.no_grad()
+    def _forward_recursive_eval(
+        self, data: torch.Tensor, target: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Evaluation forward pass for recursive models.
+        Runs through all recursion steps and returns final prediction.
+
+        Args:
+            data: Input data
+            target: Target labels
+
+        Returns:
+            avg_loss: Average loss across all recursion steps
             logits: Final output logits (for metrics)
         """
         base_model = self.model.module if hasattr(self.model, "module") else self.model
@@ -174,8 +216,8 @@ class Trainer:
 
             total_loss = total_loss + step_loss
 
-        # Return total loss (sum) and final logits for metrics
-        return total_loss, logits
+        avg_loss = total_loss / base_model.config.max_recursion_steps
+        return avg_loss, logits
 
     def train_epoch(self, train_loader: DataLoader, epoch: int) -> Dict[str, float]:
         """
@@ -203,24 +245,26 @@ class Trainer:
         for batch_idx, (data, target) in enumerate(pbar):
             data, target = data.to(self.device), target.to(self.device)
 
-            self.optimizer.zero_grad()
-
-            # Route to appropriate forward method based on model type
+            # Route to appropriate training method based on model type
             if self.is_recursive_model:
-                loss, output = self._forward_recursive(data, target)
+                # Recursive: per-step backprop handled inside _train_recursive
+                loss_value, output = self._train_recursive(data, target)
             else:
+                # Standard: forward then backward
+                self.optimizer.zero_grad()
                 loss, output = self._forward_standard(data, target)
 
-            # Common backward pass
-            if self.use_amp:
-                self.scaler.scale(loss).backward()
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
-            else:
-                loss.backward()
-                self.optimizer.step()
+                if self.use_amp:
+                    self.scaler.scale(loss).backward()
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                else:
+                    loss.backward()
+                    self.optimizer.step()
 
-            total_loss += loss.item()
+                loss_value = loss.item()
+
+            total_loss += loss_value
             num_batches += 1
 
             # Calculate accuracy
@@ -231,7 +275,7 @@ class Trainer:
             # Update progress bar
             if is_main_process(self.rank) and isinstance(pbar, tqdm):
                 current_acc = 100.0 * correct / total if total > 0 else 0.0
-                pbar.set_postfix({'loss': loss.item(), 'acc': f'{current_acc:.2f}%'})
+                pbar.set_postfix({"loss": loss_value, "acc": f"{current_acc:.2f}%"})
 
         avg_loss = total_loss / num_batches if num_batches > 0 else 0.0
         accuracy = 100.0 * correct / total if total > 0 else 0.0
@@ -277,7 +321,7 @@ class Trainer:
 
             # Route to appropriate forward method based on model type
             if self.is_recursive_model:
-                loss, output = self._forward_recursive(data, target)
+                loss, output = self._forward_recursive_eval(data, target)
             else:
                 loss, output = self._forward_standard(data, target)
 

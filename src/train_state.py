@@ -5,7 +5,7 @@ from typing import Optional
 import torch
 import torch.nn as nn
 from hydra.core.hydra_config import HydraConfig
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig, OmegaConf, open_dict
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 
@@ -162,8 +162,10 @@ class TrainState:
         print_rank_0(f"Train dataset size: {len(train_dataset)}", rank)
         print_rank_0(f"Val dataset size: {len(val_dataset)}", rank)
 
-        # Load model
+        # Load model - override num_classes from dataset
         print_rank_0(f"Loading model: {config.arch.model}", rank)
+        with open_dict(config):
+            config.arch.config.num_classes = config.dataset.num_classes
         ModelClass = load_model_class(config.arch.model)
         model = ModelClass(config.arch.config).to(device)
 
