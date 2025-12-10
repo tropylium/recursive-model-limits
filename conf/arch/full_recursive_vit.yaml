@@ -9,15 +9,15 @@ config:
   dim: 512  # Embedding dimension (dimhead)
   depth: 2  # Number of transformer layers
   heads: 8  # Number of attention heads
-  mlp_dim: 128  # MLP hidden dimension
+  mlp_dim: 512  # MLP hidden dimension
   pool: 'cls'  # Pooling method ('cls' or 'mean')
   channels: 3  # Input channels (RGB)
-  dim_head: 16  # Dimension per attention head
+  dim_head: 64  # Dimension per attention head
   dropout: 0.1  # Dropout rate
   emb_dropout: 0.1  # Embedding dropout rate
 
   class_token_in_state: true
   max_recursion_steps: 3
-  state_init: 'noise'  # 'noise' or 'zero'
+  state_init: 'zero'  # 'noise' or 'zero'
   inject_step_embedding: false  # Add learnable step embeddings to state
 
