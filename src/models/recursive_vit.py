@@ -217,8 +217,8 @@ class RecursiveViTInner(nn.Module):
             logits: (B, num_classes) classification logits
             new_state: RecursiveViTState with updated state
         """
-        if prev_state.step >= self.config.max_recursion_steps:
-            raise ValueError(f"Maximum recursion steps reached: {self.config.max_recursion_steps}")
+        # if prev_state.step >= self.config.max_recursion_steps:
+        #     raise ValueError(f"Maximum recursion steps reached: {self.config.max_recursion_steps}")
 
         x = self.to_patch_embedding(img)
         b, n, _ = x.shape

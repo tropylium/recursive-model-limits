@@ -1,5 +1,5 @@
 defaults:
-  - arch: simple_cnn
+  - arch: full_recursive_vit
   - dataset: cifar10
   - training: default
   - scheduler: cosine
